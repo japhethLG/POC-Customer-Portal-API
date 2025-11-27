@@ -29,12 +29,17 @@ export class AuthController {
       }
 
       // Check if customer already exists
-      const existingCustomer = await Customer.findOne({
-        $or: [
-          email ? { email: email.toLowerCase().trim() } : null,
-          phone ? { phone: phone.trim() } : null,
-        ].filter(Boolean),
-      });
+      const orConditions = [];
+      if (email) {
+        orConditions.push({ email: email.toLowerCase().trim() });
+      }
+      if (phone) {
+        orConditions.push({ phone: phone.trim() });
+      }
+      
+      const existingCustomer = orConditions.length > 0 
+        ? await Customer.findOne({ $or: orConditions })
+        : null;
 
       if (existingCustomer) {
         res.status(400).json({

@@ -44,6 +44,16 @@ export class JobController {
         return;
       }
 
+      // Validate ServiceM8 response
+      if (!servicem8Job || !servicem8Job.uuid) {
+        console.error('❌ Invalid ServiceM8 response - missing uuid:', servicem8Job);
+        res.status(500).json({
+          success: false,
+          message: 'Invalid response from ServiceM8 - missing job uuid',
+        });
+        return;
+      }
+
       // Save job in our database
       const job = await Job.create({
         servicem8Uuid: servicem8Job.uuid,

@@ -7,15 +7,12 @@ class ServiceM8Service {
   private readonly baseURL = 'https://api.servicem8.com/api_1.0';
 
   constructor() {
-    // Create Basic Auth token
-    const auth = Buffer.from(
-      `${config.servicem8Email}:${config.servicem8ApiToken}`
-    ).toString('base64');
-
+    // Use API Key authentication as per ServiceM8 documentation
+    // https://developer.servicem8.com/docs/authentication
     this.client = axios.create({
       baseURL: this.baseURL,
       headers: {
-        Authorization: `Basic ${auth}`,
+        'X-API-Key': config.servicem8ApiToken,
         'Content-Type': 'application/json',
       },
       timeout: 10000,
@@ -212,11 +209,41 @@ class ServiceM8Service {
         payload.scheduled_date = jobData.scheduled_date;
       }
 
+      console.log('📤 Creating job in ServiceM8 with payload:', JSON.stringify(payload, null, 2));
       const response = await this.client.post<ServiceM8Job>('/job.json', payload);
-      console.log(`✅ Created job in ServiceM8: ${response.data.uuid}`);
-      return response.data;
+      console.log('📥 ServiceM8 response status:', response.status);
+      console.log('📥 ServiceM8 response headers:', JSON.stringify(response.headers, null, 2));
+      console.log('📥 ServiceM8 response data:', JSON.stringify(response.data, null, 2));
+      
+      // ServiceM8 might return the UUID in the Location header or x-record-uuid header
+      let jobUuid = response.headers['x-record-uuid'] || response.headers['location'];
+      
+      // If location header contains a full URL, extract the UUID
+      if (jobUuid && jobUuid.includes('/')) {
+        const parts = jobUuid.split('/');
+        jobUuid = parts[parts.length - 1].replace('.json', '');
+      }
+      
+      if (!jobUuid) {
+        console.error('❌ ServiceM8 response missing uuid in headers and data');
+        throw new Error('ServiceM8 did not return a valid job uuid');
+      }
+      
+      console.log(`✅ Created job in ServiceM8: ${jobUuid}`);
+      
+      // Fetch the complete job data
+      const createdJob = await this.getJobByUuid(jobUuid);
+      if (!createdJob) {
+        throw new Error('Failed to fetch created job from ServiceM8');
+      }
+      
+      return createdJob;
     } catch (error: any) {
       console.error('Error creating job in ServiceM8:', error.message);
+      if (error.response) {
+        console.error('Response status:', error.response.status);
+        console.error('Response data:', JSON.stringify(error.response.data, null, 2));
+      }
       throw new Error('Failed to create job in ServiceM8');
     }
   }

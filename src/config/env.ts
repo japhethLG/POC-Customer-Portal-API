@@ -7,7 +7,6 @@ interface EnvConfig {
   nodeEnv: string;
   jwtSecret: string;
   jwtExpiresIn: string;
-  servicem8Email: string;
   servicem8ApiToken: string;
   mongodbUri: string;
   frontendUrl: string;
@@ -26,7 +25,6 @@ export const config: EnvConfig = {
   nodeEnv: getEnvVariable('NODE_ENV', 'development'),
   jwtSecret: getEnvVariable('JWT_SECRET'),
   jwtExpiresIn: getEnvVariable('JWT_EXPIRES_IN', '7d'),
-  servicem8Email: getEnvVariable('SERVICEM8_EMAIL'),
   servicem8ApiToken: getEnvVariable('SERVICEM8_API_TOKEN'),
   mongodbUri: getEnvVariable('MONGODB_URI'),
   frontendUrl: getEnvVariable('FRONTEND_URL', 'http://localhost:3000'),
