@@ -4,6 +4,10 @@ import { config } from './config/env';
 import { connectDatabase } from './config/database';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler.middleware';
+import { applySecurity } from './middleware/security.middleware';
+import { apiRateLimiter } from './middleware/rateLimiter.middleware';
+import { requestLogger } from './middleware/requestLogger.middleware';
+import { logger } from './utils/logger';
 
 class Server {
   private app: Application;
@@ -16,11 +20,17 @@ class Server {
   }
 
   private config(): void {
-    // Body parser
-    this.app.use(express.json());
-    this.app.use(express.urlencoded({ extended: true }));
+    // 1. Security middleware (MUST BE FIRST)
+    applySecurity(this.app);
 
-    // CORS
+    // 2. Rate limiting
+    this.app.use('/api', apiRateLimiter);
+
+    // 3. Body parser (with size limits)
+    this.app.use(express.json({ limit: '10mb' }));
+    this.app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+    // 4. CORS
     this.app.use(
       cors({
         origin: config.frontendUrl,
@@ -28,11 +38,8 @@ class Server {
       })
     );
 
-    // Request logging
-    this.app.use((req, res, next) => {
-      console.log(`${req.method} ${req.path}`);
-      next();
-    });
+    // 5. Request logging
+    this.app.use(requestLogger);
   }
 
   private routes(): void {
@@ -74,32 +81,32 @@ class Server {
 
       // Start server
       this.app.listen(config.port, () => {
-        console.log('');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('🚀 ServiceM8 Customer Portal API');
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log(`📡 Server running on: http://localhost:${config.port}`);
-        console.log(`🌍 Environment: ${config.nodeEnv}`);
-        console.log(`🔗 Frontend URL: ${config.frontendUrl}`);
-        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        console.log('');
-        console.log('Available endpoints:');
-        console.log(`  GET    /api/health`);
-        console.log(`  POST   /api/auth/register`);
-        console.log(`  POST   /api/auth/login`);
-        console.log(`  POST   /api/auth/logout`);
-        console.log(`  GET    /api/auth/me`);
-        console.log(`  GET    /api/bookings`);
-        console.log(`  GET    /api/bookings/:id`);
-        console.log(`  POST   /api/jobs`);
-        console.log(`  PUT    /api/jobs/:id`);
-        console.log(`  DELETE /api/jobs/:id`);
-        console.log(`  GET    /api/messages/:jobId`);
-        console.log(`  POST   /api/messages/:jobId`);
-        console.log('');
+        logger.info('');
+        logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        logger.info('🚀 ServiceM8 Customer Portal API');
+        logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        logger.info(`📡 Server running on: http://localhost:${config.port}`);
+        logger.info(`🌍 Environment: ${config.nodeEnv}`);
+        logger.info(`🔗 Frontend URL: ${config.frontendUrl}`);
+        logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        logger.info('');
+        logger.info('Available endpoints:');
+        logger.info(`  GET    /api/health`);
+        logger.info(`  POST   /api/auth/register`);
+        logger.info(`  POST   /api/auth/login`);
+        logger.info(`  POST   /api/auth/logout`);
+        logger.info(`  GET    /api/auth/me`);
+        logger.info(`  GET    /api/bookings`);
+        logger.info(`  GET    /api/bookings/:id`);
+        logger.info(`  POST   /api/jobs`);
+        logger.info(`  PUT    /api/jobs/:id`);
+        logger.info(`  DELETE /api/jobs/:id`);
+        logger.info(`  GET    /api/messages/:jobId`);
+        logger.info(`  POST   /api/messages/:jobId`);
+        logger.info('');
       });
     } catch (error) {
-      console.error('Failed to start server:', error);
+      logger.error('Failed to start server:', error);
       process.exit(1);
     }
   }

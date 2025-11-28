@@ -1,6 +1,7 @@
 import axios, { AxiosInstance } from 'axios';
 import { config } from '../config/env';
 import { ServiceM8Job, ServiceM8Attachment, ServiceM8Company, CreateJobPayload } from '../types';
+import { logger } from '../utils/logger';
 
 class ServiceM8Service {
   private client: AxiosInstance;
@@ -20,20 +21,28 @@ class ServiceM8Service {
 
     // Request interceptor for logging
     this.client.interceptors.request.use((config) => {
-      console.log(`🔵 ServiceM8 API Request: ${config.method?.toUpperCase()} ${config.url}`);
+      logger.debug('ServiceM8 API Request', { 
+        method: config.method?.toUpperCase(), 
+        url: config.url 
+      });
       return config;
     });
 
     // Response interceptor for logging
     this.client.interceptors.response.use(
       (response) => {
-        console.log(`✅ ServiceM8 API Success: ${response.config.url} - ${response.status}`);
+        logger.debug('ServiceM8 API Success', { 
+          url: response.config.url, 
+          status: response.status 
+        });
         return response;
       },
       (error) => {
-        console.error(
-          `❌ ServiceM8 API Error: ${error.config?.url} - ${error.response?.status || error.message}`
-        );
+        logger.error('ServiceM8 API Error', {
+          url: error.config?.url,
+          status: error.response?.status,
+          message: error.message,
+        });
         throw error;
       }
     );
@@ -45,10 +54,10 @@ class ServiceM8Service {
   async getAllJobs(): Promise<ServiceM8Job[]> {
     try {
       const response = await this.client.get<ServiceM8Job[]>('/job.json');
-      console.log(`📋 Fetched ${response.data.length} jobs from ServiceM8`);
+      logger.info('Fetched jobs from ServiceM8', { count: response.data.length });
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching jobs from ServiceM8:', error.message);
+      logger.error('Error fetching jobs from ServiceM8', { error: error.message });
       throw new Error('Failed to fetch jobs from ServiceM8');
     }
   }
@@ -59,14 +68,14 @@ class ServiceM8Service {
   async getJobByUuid(uuid: string): Promise<ServiceM8Job | null> {
     try {
       const response = await this.client.get<ServiceM8Job>(`/job/${uuid}.json`);
-      console.log(`📄 Fetched job ${uuid} from ServiceM8`);
+      logger.debug('Fetched job from ServiceM8', { uuid });
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
-        console.log(`Job ${uuid} not found in ServiceM8`);
+        logger.debug('Job not found in ServiceM8', { uuid });
         return null;
       }
-      console.error(`Error fetching job ${uuid} from ServiceM8:`, error.message);
+      logger.error('Error fetching job from ServiceM8', { uuid, error: error.message });
       throw new Error('Failed to fetch job from ServiceM8');
     }
   }
@@ -85,10 +94,16 @@ class ServiceM8Service {
           },
         }
       );
-      console.log(`📎 Fetched ${response.data.length} attachments for job ${jobUuid}`);
+      logger.debug('Fetched attachments for job', { 
+        jobUuid, 
+        count: response.data.length 
+      });
       return response.data;
     } catch (error: any) {
-      console.error(`Error fetching attachments for job ${jobUuid}:`, error.message);
+      logger.error('Error fetching attachments for job', { 
+        jobUuid, 
+        error: error.message 
+      });
       // Return empty array instead of throwing - attachments are optional
       return [];
     }
@@ -104,10 +119,16 @@ class ServiceM8Service {
           'job_uuid': jobUuid,
         },
       });
-      console.log(`💬 Fetched ${response.data.length} activities for job ${jobUuid}`);
+      logger.debug('Fetched activities for job', { 
+        jobUuid, 
+        count: response.data.length 
+      });
       return response.data;
     } catch (error: any) {
-      console.error(`Error fetching job activity for ${jobUuid}:`, error.message);
+      logger.error('Error fetching job activity', { 
+        jobUuid, 
+        error: error.message 
+      });
       // Return empty array instead of throwing - activity is optional
       return [];
     }
@@ -119,10 +140,10 @@ class ServiceM8Service {
   async testConnection(): Promise<boolean> {
     try {
       await this.client.get('/company.json');
-      console.log('✅ ServiceM8 API connection successful');
+      logger.info('ServiceM8 API connection successful');
       return true;
     } catch (error: any) {
-      console.error('❌ ServiceM8 API connection failed:', error.message);
+      logger.error('ServiceM8 API connection failed', { error: error.message });
       return false;
     }
   }
@@ -163,10 +184,10 @@ class ServiceM8Service {
         address: companyData.address,
         active: 1,
       });
-      console.log(`✅ Created company in ServiceM8: ${response.data.uuid}`);
+      logger.info('Created company in ServiceM8', { uuid: response.data.uuid });
       return response.data;
     } catch (error: any) {
-      console.error('Error creating company in ServiceM8:', error.message);
+      logger.error('Error creating company in ServiceM8', { error: error.message });
       throw new Error('Failed to create company in ServiceM8');
     }
   }
@@ -177,14 +198,17 @@ class ServiceM8Service {
   async getCompanyByUuid(uuid: string): Promise<ServiceM8Company | null> {
     try {
       const response = await this.client.get<ServiceM8Company>(`/company/${uuid}.json`);
-      console.log(`📄 Fetched company ${uuid} from ServiceM8`);
+      logger.debug('Fetched company from ServiceM8', { uuid });
       return response.data;
     } catch (error: any) {
       if (error.response?.status === 404) {
-        console.log(`Company ${uuid} not found in ServiceM8`);
+        logger.debug('Company not found in ServiceM8', { uuid });
         return null;
       }
-      console.error(`Error fetching company ${uuid} from ServiceM8:`, error.message);
+      logger.error('Error fetching company from ServiceM8', { 
+        uuid, 
+        error: error.message 
+      });
       throw new Error('Failed to fetch company from ServiceM8');
     }
   }
@@ -209,11 +233,12 @@ class ServiceM8Service {
         payload.scheduled_date = jobData.scheduled_date;
       }
 
-      console.log('📤 Creating job in ServiceM8 with payload:', JSON.stringify(payload, null, 2));
+      logger.debug('Creating job in ServiceM8', { payload });
       const response = await this.client.post<ServiceM8Job>('/job.json', payload);
-      console.log('📥 ServiceM8 response status:', response.status);
-      console.log('📥 ServiceM8 response headers:', JSON.stringify(response.headers, null, 2));
-      console.log('📥 ServiceM8 response data:', JSON.stringify(response.data, null, 2));
+      logger.debug('ServiceM8 create job response', { 
+        status: response.status,
+        headers: response.headers,
+      });
       
       // ServiceM8 might return the UUID in the Location header or x-record-uuid header
       let jobUuid = response.headers['x-record-uuid'] || response.headers['location'];
@@ -225,11 +250,11 @@ class ServiceM8Service {
       }
       
       if (!jobUuid) {
-        console.error('❌ ServiceM8 response missing uuid in headers and data');
+        logger.error('ServiceM8 response missing uuid in headers and data');
         throw new Error('ServiceM8 did not return a valid job uuid');
       }
       
-      console.log(`✅ Created job in ServiceM8: ${jobUuid}`);
+      logger.info('Created job in ServiceM8', { jobUuid });
       
       // Fetch the complete job data
       const createdJob = await this.getJobByUuid(jobUuid);
@@ -239,11 +264,11 @@ class ServiceM8Service {
       
       return createdJob;
     } catch (error: any) {
-      console.error('Error creating job in ServiceM8:', error.message);
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response data:', JSON.stringify(error.response.data, null, 2));
-      }
+      logger.error('Error creating job in ServiceM8', { 
+        error: error.message,
+        responseStatus: error.response?.status,
+        responseData: error.response?.data,
+      });
       throw new Error('Failed to create job in ServiceM8');
     }
   }
@@ -254,10 +279,13 @@ class ServiceM8Service {
   async updateJob(uuid: string, jobData: Partial<CreateJobPayload>): Promise<ServiceM8Job> {
     try {
       const response = await this.client.post<ServiceM8Job>(`/job/${uuid}.json`, jobData);
-      console.log(`✅ Updated job in ServiceM8: ${uuid}`);
+      logger.info('Updated job in ServiceM8', { uuid });
       return response.data;
     } catch (error: any) {
-      console.error(`Error updating job ${uuid} in ServiceM8:`, error.message);
+      logger.error('Error updating job in ServiceM8', { 
+        uuid, 
+        error: error.message 
+      });
       throw new Error('Failed to update job in ServiceM8');
     }
   }

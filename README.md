@@ -10,7 +10,11 @@ Backend API for the ServiceM8 Customer Portal POC. Built with Express.js, TypeSc
 - ✅ Booking management
 - ✅ File attachments
 - ✅ Messaging system
-- ✅ Data caching
+- ✅ Data caching (5-minute time-based)
+- ✅ Enterprise-grade security (Helmet, rate limiting, input sanitization)
+- ✅ Structured logging (Winston)
+- ✅ Request validation (Zod schemas)
+- ✅ Layered architecture (Controllers → Services → Repositories)
 
 ## Prerequisites
 
@@ -132,66 +136,142 @@ Response: { message: object }
 ## Project Structure
 
 ```
-api/
-├── src/
-│   ├── config/           # Configuration files
-│   │   ├── database.ts   # MongoDB connection
-│   │   └── env.ts        # Environment variables
-│   ├── controllers/      # Request handlers
-│   │   ├── auth.controller.ts
-│   │   ├── booking.controller.ts
-│   │   └── message.controller.ts
-│   ├── middleware/       # Express middleware
-│   │   ├── auth.middleware.ts
-│   │   └── errorHandler.middleware.ts
-│   ├── models/          # Mongoose models
-│   │   ├── Customer.model.ts
-│   │   ├── Job.model.ts
-│   │   ├── Message.model.ts
-│   │   ├── Attachment.model.ts
-│   │   └── Session.model.ts
-│   ├── routes/          # API routes
-│   │   ├── auth.routes.ts
-│   │   ├── booking.routes.ts
-│   │   ├── message.routes.ts
-│   │   └── index.ts
-│   ├── services/        # Business logic
-│   │   └── servicem8.service.ts
-│   ├── utils/           # Utility functions
-│   │   └── jwt.utils.ts
-│   ├── types/           # TypeScript types
-│   │   └── index.ts
-│   ├── scripts/         # Utility scripts
-│   │   └── seed.ts
-│   └── server.ts        # Main server file
-├── package.json
-├── tsconfig.json
-└── .env.example
+src/
+├── config/               # Configuration
+│   ├── database.ts       # MongoDB connection
+│   ├── env.ts            # Environment variables
+│   └── logger.ts         # Winston logger config
+│
+├── controllers/          # HTTP layer (thin controllers)
+│   ├── auth.controller.ts
+│   ├── booking.controller.ts
+│   ├── job.controller.ts
+│   └── message.controller.ts
+│
+├── services/             # Business logic layer
+│   ├── auth.service.ts       # Authentication logic
+│   ├── booking.service.ts    # Booking/caching logic
+│   ├── job.service.ts        # Job CRUD with ServiceM8
+│   ├── message.service.ts    # Messaging logic
+│   └── servicem8.service.ts  # ServiceM8 API client
+│
+├── repositories/         # Data access layer
+│   ├── base.repository.ts
+│   ├── customer.repository.ts
+│   ├── job.repository.ts
+│   ├── message.repository.ts
+│   ├── attachment.repository.ts
+│   └── session.repository.ts
+│
+├── middleware/           # Express middleware
+│   ├── auth.middleware.ts
+│   ├── errorHandler.middleware.ts
+│   ├── validation.middleware.ts
+│   ├── rateLimiter.middleware.ts
+│   ├── requestLogger.middleware.ts
+│   └── security.middleware.ts
+│
+├── validators/           # Zod validation schemas
+│   ├── auth.validator.ts
+│   ├── booking.validator.ts
+│   ├── job.validator.ts
+│   └── message.validator.ts
+│
+├── models/               # Mongoose models
+│   ├── Customer.model.ts
+│   ├── Job.model.ts
+│   ├── Message.model.ts
+│   ├── Attachment.model.ts
+│   └── Session.model.ts
+│
+├── routes/               # API routes
+│   ├── auth.routes.ts
+│   ├── booking.routes.ts
+│   ├── job.routes.ts
+│   ├── message.routes.ts
+│   └── index.ts
+│
+├── utils/                # Utility functions
+│   ├── jwt.utils.ts
+│   ├── logger.ts
+│   ├── errors.ts         # Custom error classes
+│   ├── asyncHandler.ts   # Async error wrapper
+│   └── response.ts       # Response formatters
+│
+├── types/                # TypeScript types
+│   └── index.ts
+│
+├── scripts/              # Utility scripts
+│   └── seed.ts
+│
+└── server.ts             # Main server file
 ```
+
+## Architecture
+
+The application follows a layered architecture for separation of concerns:
+
+```
+Routes (+ Zod validation)
+    ↓
+Controllers (HTTP handling only)
+    ↓
+Services (business logic)
+    ↓
+Repositories (data access)
+    ↓
+Models (Mongoose schemas)
+```
+
+### Key Design Patterns
+
+- **Repository Pattern**: Abstracts database operations
+- **Service Layer**: Encapsulates business logic
+- **Async Handler**: Eliminates try-catch boilerplate
+- **Custom Error Classes**: Consistent error handling
+- **Response Formatters**: Standardized API responses
 
 ## How It Works
 
 ### 1. Authentication
-- Customers login with email and phone
-- System validates credentials against MongoDB
-- JWT token is generated and returned
-- Token is required for all protected endpoints
+- Customers register/login with email or phone + password
+- Password hashed with bcrypt
+- JWT token generated and returned
+- Session stored in database for tracking
+- Token required for all protected endpoints
 
-### 2. ServiceM8 Integration
+### 2. Security
+- **Helmet**: Security headers (CSP, HSTS, XSS protection)
+- **Rate Limiting**: 
+  - General API: 100 requests/15min
+  - Auth endpoints: 5 attempts/15min
+  - Job creation: 20 requests/15min
+- **Input Sanitization**: NoSQL injection prevention
+- **Zod Validation**: Type-safe request validation
+
+### 3. ServiceM8 Integration
 - Real API calls to ServiceM8 for job data
-- HTTP Basic Authentication with ServiceM8 credentials
-- Jobs are cached in MongoDB for 5 minutes
+- API Key authentication with ServiceM8
+- Jobs cached in MongoDB for 5 minutes
 - Customer matching by email/phone in job contact details
+- Two-phase writes (ServiceM8 first, then MongoDB)
 
-### 3. Data Caching
-- ServiceM8 responses are cached in MongoDB
+### 4. Data Caching
+- ServiceM8 responses cached in MongoDB
+- 5-minute cache duration
 - Reduces API calls and improves performance
-- Cache refreshes every 5 minutes or on demand
+- Automatic refresh on cache miss
 
-### 4. Messaging
-- Messages are stored in MongoDB
-- Not integrated with ServiceM8 (would require webhooks)
-- Simple chat interface for customer-business communication
+### 5. Error Handling
+- Custom error classes (ValidationError, NotFoundError, etc.)
+- Centralized error handler middleware
+- Structured logging with Winston
+- Different error responses for dev vs production
+
+### 6. Messaging
+- Messages stored in MongoDB
+- Job ownership validation before sending
+- Customer and system message types
 
 ## Development
 

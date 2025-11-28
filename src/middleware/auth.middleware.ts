@@ -2,6 +2,7 @@ import { Response, NextFunction } from 'express';
 import { JWTUtils } from '../utils/jwt.utils';
 import { Customer } from '../models';
 import { AuthRequest } from '../types';
+import { logger } from '../utils/logger';
 
 export const authMiddleware = async (
   req: AuthRequest,
@@ -42,7 +43,7 @@ export const authMiddleware = async (
 
     next();
   } catch (error: any) {
-    console.error('Auth middleware error:', error.message);
+    logger.warn('Auth middleware error', { error: error.message });
     res.status(401).json({
       success: false,
       message: 'Invalid or expired token',

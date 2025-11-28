@@ -1,257 +1,75 @@
+/**
+ * Authentication Controller
+ *
+ * Thin controller that delegates to AuthService.
+ * Handles HTTP concerns only (request/response).
+ */
+
 import { Request, Response } from 'express';
-import { Customer, Session } from '../models';
-import { JWTUtils } from '../utils/jwt.utils';
-import { servicem8Service } from '../services/servicem8.service';
+import { asyncHandler } from '../utils/asyncHandler';
+import { authService } from '../services/auth.service';
+import { sendSuccess, sendCreated } from '../utils/response';
+import { AuthRequest } from '../types';
 
 export class AuthController {
   /**
    * Register a new customer
+   * POST /api/auth/register
    */
-  static async register(req: Request, res: Response): Promise<void> {
-    try {
-      const { email, phone, password, firstName, lastName, address } = req.body;
+  static register = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { email, phone, password, firstName, lastName, address } = req.body;
 
-      // Validate input
-      if ((!email && !phone) || !password) {
-        res.status(400).json({
-          success: false,
-          message: 'Either email or phone, and password are required',
-        });
-        return;
-      }
+    const result = await authService.register({
+      email,
+      phone,
+      password,
+      firstName,
+      lastName,
+      address,
+    });
 
-      if (password.length < 6) {
-        res.status(400).json({
-          success: false,
-          message: 'Password must be at least 6 characters',
-        });
-        return;
-      }
-
-      // Check if customer already exists
-      const orConditions = [];
-      if (email) {
-        orConditions.push({ email: email.toLowerCase().trim() });
-      }
-      if (phone) {
-        orConditions.push({ phone: phone.trim() });
-      }
-      
-      const existingCustomer = orConditions.length > 0 
-        ? await Customer.findOne({ $or: orConditions })
-        : null;
-
-      if (existingCustomer) {
-        res.status(400).json({
-          success: false,
-          message: 'Customer with this email or phone already exists',
-        });
-        return;
-      }
-
-      // Create company in ServiceM8 (optional but recommended)
-      let servicem8ClientUuid: string | undefined;
-      try {
-        const companyName = `${firstName || ''} ${lastName || ''}`.trim() || email || phone || 'Customer';
-        const company = await servicem8Service.createCompany({
-          name: companyName,
-          email: email,
-          mobile: phone,
-          address: address,
-        });
-        servicem8ClientUuid = company.uuid;
-        console.log(`✅ Created ServiceM8 company: ${servicem8ClientUuid}`);
-      } catch (error: any) {
-        console.warn('Failed to create ServiceM8 company:', error.message);
-        // Continue without ServiceM8 company - not critical
-      }
-
-      // Create customer in our database
-      const customer = await Customer.create({
-        email: email?.toLowerCase().trim(),
-        phone: phone?.trim(),
-        password,
-        firstName,
-        lastName,
-        address,
-        servicem8ClientUuid,
-      });
-
-      // Generate JWT token
-      const token = JWTUtils.generateToken({
-        customerId: customer._id.toString(),
-        email: customer.email || customer.phone || '',
-      });
-
-      // Store session in database
-      const expiresAt = JWTUtils.getExpirationDate();
-      await Session.create({
-        customerId: customer._id,
-        token,
-        expiresAt,
-      });
-
-      console.log(`✅ Customer registered: ${customer.email || customer.phone}`);
-
-      res.status(201).json({
-        success: true,
-        message: 'Registration successful',
-        data: {
-          token,
-          customer: {
-            id: customer._id,
-            email: customer.email,
-            phone: customer.phone,
-            firstName: customer.firstName,
-            lastName: customer.lastName,
-            address: customer.address,
-            servicem8ClientUuid: customer.servicem8ClientUuid,
-          },
-        },
-      });
-    } catch (error: any) {
-      console.error('Registration error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Registration failed',
-      });
-    }
-  }
+    sendCreated(res, result, 'Registration successful');
+  });
 
   /**
-   * Login customer with (email OR phone) and password
+   * Login customer
+   * POST /api/auth/login
    */
-  static async login(req: Request, res: Response): Promise<void> {
-    try {
-      const { email, phone, password } = req.body;
+  static login = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const { email, phone, password } = req.body;
 
-      // Validate input
-      if ((!email && !phone) || !password) {
-        res.status(400).json({
-          success: false,
-          message: 'Either email or phone, and password are required',
-        });
-        return;
-      }
+    const result = await authService.login({
+      email,
+      phone,
+      password,
+    });
 
-      // Find customer by email OR phone
-      const query: any = {};
-      if (email) {
-        query.email = email.toLowerCase().trim();
-      } else if (phone) {
-        query.phone = phone.trim();
-      }
-
-      const customer = await Customer.findOne(query);
-
-      if (!customer) {
-        res.status(401).json({
-          success: false,
-          message: 'Invalid credentials',
-        });
-        return;
-      }
-
-      // Verify password
-      const isPasswordValid = await customer.comparePassword(password);
-      if (!isPasswordValid) {
-        res.status(401).json({
-          success: false,
-          message: 'Invalid credentials',
-        });
-        return;
-      }
-
-      // Generate JWT token
-      const token = JWTUtils.generateToken({
-        customerId: customer._id.toString(),
-        email: customer.email || customer.phone || '',
-      });
-
-      // Store session in database
-      const expiresAt = JWTUtils.getExpirationDate();
-      await Session.create({
-        customerId: customer._id,
-        token,
-        expiresAt,
-      });
-
-      console.log(`✅ Customer logged in: ${customer.email || customer.phone}`);
-
-      res.json({
-        success: true,
-        message: 'Login successful',
-        data: {
-          token,
-          customer: {
-            id: customer._id,
-            email: customer.email,
-            phone: customer.phone,
-            firstName: customer.firstName,
-            lastName: customer.lastName,
-            address: customer.address,
-            servicem8ClientUuid: customer.servicem8ClientUuid,
-          },
-        },
-      });
-    } catch (error: any) {
-      console.error('Login error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Login failed',
-      });
-    }
-  }
+    sendSuccess(res, result, 200, 'Login successful');
+  });
 
   /**
-   * Logout customer (invalidate session)
+   * Logout customer
+   * POST /api/auth/logout
    */
-  static async logout(req: Request, res: Response): Promise<void> {
-    try {
-      const authHeader = req.headers.authorization;
-      if (authHeader && authHeader.startsWith('Bearer ')) {
-        const token = authHeader.substring(7);
-        await Session.deleteOne({ token });
-        console.log('✅ Customer logged out');
-      }
-
-      res.json({
-        success: true,
-        message: 'Logout successful',
-      });
-    } catch (error: any) {
-      console.error('Logout error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Logout failed',
-      });
+  static logout = asyncHandler(async (req: Request, res: Response): Promise<void> => {
+    const authHeader = req.headers.authorization;
+    
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      const token = authHeader.substring(7);
+      await authService.logout(token);
     }
-  }
+
+    sendSuccess(res, undefined, 200, 'Logout successful');
+  });
 
   /**
    * Get current customer info
+   * GET /api/auth/me
    */
-  static async me(req: any, res: Response): Promise<void> {
-    try {
-      const customer = req.customer;
+  static me = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
+    const customer = req.customer!;
+    const profile = authService.getProfile(customer);
 
-      res.json({
-        success: true,
-        data: {
-          id: customer._id,
-          email: customer.email,
-          phone: customer.phone,
-          firstName: customer.firstName,
-          lastName: customer.lastName,
-        },
-      });
-    } catch (error: any) {
-      console.error('Get me error:', error);
-      res.status(500).json({
-        success: false,
-        message: 'Failed to get customer info',
-      });
-    }
-  }
+    sendSuccess(res, profile);
+  });
 }
-

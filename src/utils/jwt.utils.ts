@@ -7,9 +7,9 @@ export class JWTUtils {
    * Generate a JWT token
    */
   static generateToken(payload: TokenPayload): string {
-    return jwt.sign(payload, config.jwtSecret, {
+    return jwt.sign(payload as object, config.jwtSecret, {
       expiresIn: config.jwtExpiresIn,
-    });
+    } as jwt.SignOptions);
   }
 
   /**

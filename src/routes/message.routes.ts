@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { MessageController } from '../controllers/message.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { validate } from '../middleware/validation.middleware';
+import {
+  getMessagesSchema,
+  sendMessageSchema,
+} from '../validators/message.validator';
 
 const router = Router();
 
@@ -8,10 +13,10 @@ const router = Router();
 router.use(authMiddleware);
 
 // GET /api/messages/:jobId
-router.get('/:jobId', MessageController.getMessages);
+router.get('/:jobId', validate(getMessagesSchema), MessageController.getMessages);
 
 // POST /api/messages/:jobId
-router.post('/:jobId', MessageController.sendMessage);
+router.post('/:jobId', validate(sendMessageSchema), MessageController.sendMessage);
 
 export default router;
 

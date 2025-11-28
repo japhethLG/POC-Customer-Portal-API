@@ -1,6 +1,11 @@
 import { Router } from 'express';
 import { BookingController } from '../controllers/booking.controller';
 import { authMiddleware } from '../middleware/auth.middleware';
+import { validate } from '../middleware/validation.middleware';
+import {
+  getAllBookingsSchema,
+  getBookingByIdSchema,
+} from '../validators/booking.validator';
 
 const router = Router();
 
@@ -8,10 +13,10 @@ const router = Router();
 router.use(authMiddleware);
 
 // GET /api/bookings
-router.get('/', BookingController.getAllBookings);
+router.get('/', validate(getAllBookingsSchema), BookingController.getAllBookings);
 
 // GET /api/bookings/:id
-router.get('/:id', BookingController.getBookingById);
+router.get('/:id', validate(getBookingByIdSchema), BookingController.getBookingById);
 
 export default router;
 
