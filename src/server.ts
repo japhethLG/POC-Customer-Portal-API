@@ -81,29 +81,29 @@ class Server {
 
       // Start server
       this.app.listen(config.port, () => {
-        logger.info('');
-        logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        logger.info('🚀 ServiceM8 Customer Portal API');
-        logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        logger.info(`📡 Server running on: http://localhost:${config.port}`);
-        logger.info(`🌍 Environment: ${config.nodeEnv}`);
-        logger.info(`🔗 Frontend URL: ${config.frontendUrl}`);
-        logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
-        logger.info('');
-        logger.info('Available endpoints:');
-        logger.info(`  GET    /api/health`);
-        logger.info(`  POST   /api/auth/register`);
-        logger.info(`  POST   /api/auth/login`);
-        logger.info(`  POST   /api/auth/logout`);
-        logger.info(`  GET    /api/auth/me`);
-        logger.info(`  GET    /api/bookings`);
-        logger.info(`  GET    /api/bookings/:id`);
-        logger.info(`  POST   /api/jobs`);
-        logger.info(`  PUT    /api/jobs/:id`);
-        logger.info(`  DELETE /api/jobs/:id`);
-        logger.info(`  GET    /api/messages/:jobId`);
-        logger.info(`  POST   /api/messages/:jobId`);
-        logger.info('');
+        // logger.info('');
+        // logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        // logger.info('🚀 ServiceM8 Customer Portal API');
+        // logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        // logger.info(`📡 Server running on: http://localhost:${config.port}`);
+        // logger.info(`🌍 Environment: ${config.nodeEnv}`);
+        // logger.info(`🔗 Frontend URL: ${config.frontendUrl}`);
+        // logger.info('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        // logger.info('');
+        // logger.info('Available endpoints:');
+        // logger.info(`  GET    /api/health`);
+        // logger.info(`  POST   /api/auth/register`);
+        // logger.info(`  POST   /api/auth/login`);
+        // logger.info(`  POST   /api/auth/logout`);
+        // logger.info(`  GET    /api/auth/me`);
+        // logger.info(`  GET    /api/bookings`);
+        // logger.info(`  GET    /api/bookings/:id`);
+        // logger.info(`  POST   /api/jobs`);
+        // logger.info(`  PUT    /api/jobs/:id`);
+        // logger.info(`  DELETE /api/jobs/:id`);
+        // logger.info(`  GET    /api/messages/:jobId`);
+        // logger.info(`  POST   /api/messages/:jobId`);
+        // logger.info('');
       });
     } catch (error) {
       logger.error('Failed to start server:', error);

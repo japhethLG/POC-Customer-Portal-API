@@ -17,18 +17,12 @@ export class BookingController {
    * GET /api/bookings
    */
   static getAllBookings = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    const customerId = req.customerId!;
+    const customerId = req.customerId!.toString();
     const customer = req.customer!;
 
-    const result = await bookingService.getAllBookings(customerId, customer);
+    const bookings = await bookingService.getAllBookings(customerId, customer);
 
-    sendSuccess(
-      res,
-      result.bookings,
-      200,
-      undefined,
-      { cached: result.cached }
-    );
+    sendSuccess(res, bookings);
   });
 
   /**
@@ -36,10 +30,11 @@ export class BookingController {
    * GET /api/bookings/:id
    */
   static getBookingById = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    const { id } = req.params;
-    const customerId = req.customerId!;
+    const { id } = req.params; // This is now the ServiceM8 UUID
+    const customerId = req.customerId!.toString();
+    const customer = req.customer!;
 
-    const booking = await bookingService.getBookingById(id, customerId);
+    const booking = await bookingService.getBookingById(id, customerId, customer);
 
     sendSuccess(res, booking);
   });

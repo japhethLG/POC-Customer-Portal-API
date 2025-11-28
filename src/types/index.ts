@@ -9,51 +9,20 @@ export interface ICustomer extends Document {
   password: string;
   firstName?: string;
   lastName?: string;
-  servicem8ClientUuid?: string; // ServiceM8 Company/Contact UUID
+  servicem8ClientUuid: string; // ServiceM8 Company/Contact UUID (required)
   address?: string;
   createdAt: Date;
   updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
 }
 
-// Job Types
-export interface IJob extends Document {
-  _id: Types.ObjectId;
-  servicem8Uuid: string;
-  customerId: Types.ObjectId;
-  jobNumber?: string;
-  status?: string;
-  jobAddress?: string;
-  jobDescription?: string;
-  scheduledDate?: Date;
-  contactName?: string;
-  contactEmail?: string;
-  contactPhone?: string;
-  rawData?: any;
-  createdAt: Date;
-  updatedAt: Date;
-}
-
 // Message Types
 export interface IMessage extends Document {
   _id: Types.ObjectId;
-  jobId: Types.ObjectId;
+  jobUuid: string; // ServiceM8 Job UUID
   customerId: Types.ObjectId;
   message: string;
   senderType: 'customer' | 'system';
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-// Attachment Types
-export interface IAttachment extends Document {
-  _id: Types.ObjectId;
-  jobId: Types.ObjectId;
-  servicem8Uuid?: string;
-  fileName?: string;
-  fileType?: string;
-  fileUrl?: string;
-  thumbnailUrl?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -111,6 +80,7 @@ export interface CreateJobPayload {
   scheduled_date?: string;
   status?: string;
   company_uuid?: string;
+  active?: number;
 }
 
 export interface ServiceM8Attachment {

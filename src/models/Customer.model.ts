@@ -31,6 +31,7 @@ const customerSchema = new Schema<ICustomer>(
     },
     servicem8ClientUuid: {
       type: String,
+      required: true,
       trim: true,
     },
     address: {

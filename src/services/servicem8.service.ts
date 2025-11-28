@@ -177,6 +177,7 @@ class ServiceM8Service {
     address?: string;
   }): Promise<ServiceM8Company> {
     try {
+      logger.debug('Creating company in ServiceM8', { companyData });
       const response = await this.client.post<ServiceM8Company>('/company.json', {
         name: companyData.name,
         email: companyData.email,
@@ -184,10 +185,41 @@ class ServiceM8Service {
         address: companyData.address,
         active: 1,
       });
-      logger.info('Created company in ServiceM8', { uuid: response.data.uuid });
-      return response.data;
+      
+      logger.debug('ServiceM8 company response', { 
+        status: response.status,
+        headers: response.headers,
+        data: response.data 
+      });
+      
+      // ServiceM8 might return the UUID in the Location header or x-record-uuid header
+      let companyUuid = response.headers['x-record-uuid'] || response.headers['location'];
+      
+      // If location header contains a full URL, extract the UUID
+      if (companyUuid && companyUuid.includes('/')) {
+        const parts = companyUuid.split('/');
+        companyUuid = parts[parts.length - 1].replace('.json', '');
+      }
+      
+      if (!companyUuid) {
+        logger.error('ServiceM8 response missing company uuid in headers and data');
+        throw new Error('ServiceM8 did not return a valid company uuid');
+      }
+      
+      logger.info('Created company in ServiceM8', { uuid: companyUuid });
+      
+      // Fetch the complete company data
+      const createdCompany = await this.getCompanyByUuid(companyUuid);
+      if (!createdCompany) {
+        throw new Error('Failed to fetch created company from ServiceM8');
+      }
+      
+      return createdCompany;
     } catch (error: any) {
-      logger.error('Error creating company in ServiceM8', { error: error.message });
+      logger.error('Error creating company in ServiceM8', { 
+        error: error.message,
+        response: error.response?.data 
+      });
       throw new Error('Failed to create company in ServiceM8');
     }
   }
@@ -217,6 +249,7 @@ class ServiceM8Service {
    * Create a new job in ServiceM8
    */
   async createJob(jobData: CreateJobPayload): Promise<ServiceM8Job> {
+    console.log("🚀 ~ ServiceM8Service ~ createJob ~ jobData:", jobData)
     try {
       const payload: any = {
         job_address: jobData.job_address,
@@ -278,13 +311,44 @@ class ServiceM8Service {
    */
   async updateJob(uuid: string, jobData: Partial<CreateJobPayload>): Promise<ServiceM8Job> {
     try {
-      const response = await this.client.post<ServiceM8Job>(`/job/${uuid}.json`, jobData);
+      // First fetch the existing job to get all current fields
+      const existingJob = await this.getJobByUuid(uuid);
+      if (!existingJob) {
+        throw new Error('Job not found');
+      }
+
+      // Merge the updates with existing data
+      const updatedData = {
+        ...existingJob,
+        ...jobData,
+        uuid, // Ensure UUID is preserved
+        // Only preserve active if not being updated
+        active: jobData.active !== undefined ? jobData.active : existingJob.active,
+      };
+
+      logger.debug('Updating job in ServiceM8', { uuid, updates: jobData });
+      
+      // POST the complete record back to ServiceM8
+      const response = await this.client.post<ServiceM8Job>(`/job/${uuid}.json`, updatedData);
+      
+      logger.debug('ServiceM8 update job response', { 
+        status: response.status,
+        data: response.data 
+      });
+
+      // After update, fetch the latest version to ensure we have current data
+      const updatedJob = await this.getJobByUuid(uuid);
+      if (!updatedJob) {
+        throw new Error('Failed to fetch updated job');
+      }
+
       logger.info('Updated job in ServiceM8', { uuid });
-      return response.data;
+      return updatedJob;
     } catch (error: any) {
       logger.error('Error updating job in ServiceM8', { 
         uuid, 
-        error: error.message 
+        error: error.message,
+        response: error.response?.data
       });
       throw new Error('Failed to update job in ServiceM8');
     }

@@ -51,7 +51,7 @@ export interface AuthResult {
     firstName?: string;
     lastName?: string;
     address?: string;
-    servicem8ClientUuid?: string;
+    servicem8ClientUuid: string; // Required - created during registration
   };
 }
 
@@ -101,14 +101,14 @@ class AuthService {
       throw new ConflictError('Customer with this email or phone already exists');
     }
 
-    // Create company in ServiceM8 (optional - don't fail registration if this fails)
-    let servicem8ClientUuid: string | undefined;
+    // Create company in ServiceM8 (mandatory - registration fails if this fails)
+    const companyName = `${firstName || ''} ${lastName || ''}`.trim() || 
+                        normalizedEmail || 
+                        normalizedPhone || 
+                        'Customer';
+    
+    let servicem8ClientUuid: string;
     try {
-      const companyName = `${firstName || ''} ${lastName || ''}`.trim() || 
-                          normalizedEmail || 
-                          normalizedPhone || 
-                          'Customer';
-      
       const company = await servicem8Service.createCompany({
         name: companyName,
         email: normalizedEmail,
@@ -119,10 +119,10 @@ class AuthService {
       servicem8ClientUuid = company.uuid;
       logger.info('Created ServiceM8 company for new customer', { servicem8ClientUuid });
     } catch (error: any) {
-      logger.warn('Failed to create ServiceM8 company during registration', { 
+      logger.error('Failed to create ServiceM8 company during registration', { 
         error: error.message 
       });
-      // Continue without ServiceM8 company - not critical for registration
+      throw new Error('Failed to create customer account in ServiceM8. Please try again.');
     }
 
     // Create customer in database

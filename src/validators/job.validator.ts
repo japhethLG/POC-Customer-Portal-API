@@ -25,10 +25,7 @@ export const createJobSchema = z.object({
   body: z.object({
     job_address: z.string().min(1, 'Job address is required'),
     job_description: z.string().min(1, 'Job description is required'),
-    scheduled_date: z
-      .string()
-      .datetime({ message: 'Invalid date format. Use ISO 8601 format' })
-      .optional(),
+    scheduled_date: z.string().optional(),
     status: jobStatusEnum.optional(),
     contact_name: z.string().optional(),
     contact_email: z.string().email('Invalid email format').optional(),
@@ -47,10 +44,7 @@ export const updateJobSchema = z.object({
   body: z.object({
     job_address: z.string().min(1, 'Job address cannot be empty').optional(),
     job_description: z.string().min(1, 'Job description cannot be empty').optional(),
-    scheduled_date: z
-      .string()
-      .datetime({ message: 'Invalid date format. Use ISO 8601 format' })
-      .optional(),
+    scheduled_date: z.string().optional(),
     status: jobStatusEnum.optional(),
     contact_name: z.string().optional(),
     contact_email: z.string().email('Invalid email format').optional(),

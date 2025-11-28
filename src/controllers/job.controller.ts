@@ -17,7 +17,7 @@ export class JobController {
    * POST /api/jobs
    */
   static createJob = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    const customerId = req.customerId!;
+    const customerId = req.customerId!.toString();
     const customer = req.customer!;
     const { job_address, job_description, scheduled_date, status } = req.body;
 
@@ -35,14 +35,16 @@ export class JobController {
    * PUT /api/jobs/:id
    */
   static updateJob = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    const { id } = req.params;
-    const customerId = req.customerId!;
+    const { id } = req.params; // This is now the ServiceM8 UUID
+    const customerId = req.customerId!.toString();
+    const customer = req.customer!;
     const { job_address, job_description, scheduled_date, status } = req.body;
 
     const job = await jobService.updateJob(
       id,
       { job_address, job_description, scheduled_date, status },
-      customerId
+      customerId,
+      customer
     );
 
     sendSuccess(res, job, 200, 'Job updated successfully');
@@ -53,10 +55,11 @@ export class JobController {
    * DELETE /api/jobs/:id
    */
   static deleteJob = asyncHandler(async (req: AuthRequest, res: Response): Promise<void> => {
-    const { id } = req.params;
-    const customerId = req.customerId!;
+    const { id } = req.params; // This is now the ServiceM8 UUID
+    const customerId = req.customerId!.toString();
+    const customer = req.customer!;
 
-    await jobService.deleteJob(id, customerId);
+    await jobService.deleteJob(id, customerId, customer);
 
     sendSuccess(res, undefined, 200, 'Job deleted successfully');
   });

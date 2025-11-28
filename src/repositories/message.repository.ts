@@ -17,12 +17,12 @@ export class MessageRepository extends BaseRepository<IMessage> {
   /**
    * Find all messages for a job
    *
-   * @param jobId - Job ID
+   * @param jobUuid - ServiceM8 Job UUID
    * @returns Array of messages sorted by creation date
    */
-  async findByJobId(jobId: string | Types.ObjectId): Promise<IMessage[]> {
+  async findByJobUuid(jobUuid: string): Promise<IMessage[]> {
     return this.find(
-      { jobId },
+      { jobUuid },
       {
         sort: { createdAt: 1 }, // Oldest first
       }
@@ -32,12 +32,12 @@ export class MessageRepository extends BaseRepository<IMessage> {
   /**
    * Find messages for a job with lean query (plain objects)
    *
-   * @param jobId - Job ID
+   * @param jobUuid - ServiceM8 Job UUID
    * @returns Array of message objects
    */
-  async findByJobIdLean(jobId: string | Types.ObjectId): Promise<any[]> {
+  async findByJobUuidLean(jobUuid: string): Promise<any[]> {
     return this.model
-      .find({ jobId })
+      .find({ jobUuid })
       .sort({ createdAt: 1 })
       .lean()
       .exec();
@@ -46,18 +46,18 @@ export class MessageRepository extends BaseRepository<IMessage> {
   /**
    * Create customer message
    *
-   * @param jobId - Job ID
+   * @param jobUuid - ServiceM8 Job UUID
    * @param customerId - Customer ID
    * @param message - Message content
    * @returns Created message
    */
   async createCustomerMessage(
-    jobId: string | Types.ObjectId,
+    jobUuid: string,
     customerId: string | Types.ObjectId,
     message: string
   ): Promise<IMessage> {
     return this.create({
-      jobId: jobId as any,
+      jobUuid,
       customerId: customerId as any,
       message,
       senderType: 'customer',
@@ -67,18 +67,18 @@ export class MessageRepository extends BaseRepository<IMessage> {
   /**
    * Create system message
    *
-   * @param jobId - Job ID
+   * @param jobUuid - ServiceM8 Job UUID
    * @param customerId - Customer ID
    * @param message - Message content
    * @returns Created message
    */
   async createSystemMessage(
-    jobId: string | Types.ObjectId,
+    jobUuid: string,
     customerId: string | Types.ObjectId,
     message: string
   ): Promise<IMessage> {
     return this.create({
-      jobId: jobId as any,
+      jobUuid,
       customerId: customerId as any,
       message,
       senderType: 'system',

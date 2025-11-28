@@ -2,14 +2,15 @@
  * Message Service
  *
  * Handles all message-related business logic including
- * fetching and creating messages with job ownership validation.
+ * fetching and creating messages with job ownership validation via ServiceM8.
  */
 
 import { Types } from 'mongoose';
 import { messageRepository } from '../repositories/message.repository';
-import { jobRepository } from '../repositories/job.repository';
+import { servicem8Service } from './servicem8.service';
 import { logger } from '../utils/logger';
-import { NotFoundError, ValidationError } from '../utils/errors';
+import { NotFoundError, ForbiddenError, ValidationError } from '../utils/errors';
+import { ICustomer } from '../types';
 
 /**
  * Message result for API responses
@@ -25,23 +26,41 @@ class MessageService {
   /**
    * Get all messages for a job
    *
-   * @param jobId - Job ID
-   * @param customerId - Customer ID for ownership verification
+   * @param jobUuid - ServiceM8 Job UUID
+   * @param customerId - Customer ID for logging
+   * @param customer - Customer document for ownership verification
    * @returns Array of messages
-   * @throws NotFoundError if job not found or not owned by customer
+   * @throws NotFoundError if job not found
+   * @throws ForbiddenError if customer doesn't own the job
    */
   async getMessages(
-    jobId: string,
-    customerId: Types.ObjectId
+    jobUuid: string,
+    customerId: string,
+    customer: ICustomer
   ): Promise<MessageResult[]> {
-    // Verify job belongs to customer
-    const job = await jobRepository.findOne({ _id: jobId, customerId });
+    // Verify job exists and belongs to customer
+    const job = await servicem8Service.getJobByUuid(jobUuid);
     if (!job) {
       throw new NotFoundError('Booking');
     }
 
+    // Check if job is active
+    if (job.active === 0) {
+      throw new NotFoundError('Booking');
+    }
+
+    if (job.company_uuid !== customer.servicem8ClientUuid) {
+      logger.warn('Customer attempted to access messages for job they do not own', {
+        customerId,
+        jobUuid,
+        jobCompanyUuid: job.company_uuid,
+        customerCompanyUuid: customer.servicem8ClientUuid
+      });
+      throw new ForbiddenError('You do not have permission to access these messages');
+    }
+
     // Fetch messages (lean query for performance)
-    const messages = await messageRepository.findByJobIdLean(jobId);
+    const messages = await messageRepository.findByJobUuidLean(jobUuid);
 
     return messages.map(msg => ({
       id: msg._id,
@@ -54,16 +73,19 @@ class MessageService {
   /**
    * Send a message for a job
    *
-   * @param jobId - Job ID
+   * @param jobUuid - ServiceM8 Job UUID
    * @param customerId - Customer ID
+   * @param customer - Customer document for ownership verification
    * @param messageText - Message content
    * @returns Created message
-   * @throws NotFoundError if job not found or not owned by customer
+   * @throws NotFoundError if job not found
+   * @throws ForbiddenError if customer doesn't own the job
    * @throws ValidationError if message is empty
    */
   async sendMessage(
-    jobId: string,
+    jobUuid: string,
     customerId: Types.ObjectId,
+    customer: ICustomer,
     messageText: string
   ): Promise<MessageResult> {
     // Validate message
@@ -72,21 +94,36 @@ class MessageService {
       throw new ValidationError('Message is required');
     }
 
-    // Verify job belongs to customer
-    const job = await jobRepository.findOne({ _id: jobId, customerId });
+    // Verify job exists and belongs to customer
+    const job = await servicem8Service.getJobByUuid(jobUuid);
     if (!job) {
       throw new NotFoundError('Booking');
     }
 
+    // Check if job is active
+    if (job.active === 0) {
+      throw new NotFoundError('Booking');
+    }
+
+    if (job.company_uuid !== customer.servicem8ClientUuid) {
+      logger.warn('Customer attempted to send message for job they do not own', {
+        customerId,
+        jobUuid,
+        jobCompanyUuid: job.company_uuid,
+        customerCompanyUuid: customer.servicem8ClientUuid
+      });
+      throw new ForbiddenError('You do not have permission to send messages for this job');
+    }
+
     // Create message
     const newMessage = await messageRepository.createCustomerMessage(
-      jobId,
+      jobUuid,
       customerId,
       trimmedMessage
     );
 
     logger.info('New message sent by customer', { 
-      jobId, 
+      jobUuid,
       customerId,
       messageId: newMessage._id 
     });
@@ -103,24 +140,24 @@ class MessageService {
    * Create a system message for a job
    * (For internal use, e.g., status updates)
    *
-   * @param jobId - Job ID
+   * @param jobUuid - ServiceM8 Job UUID
    * @param customerId - Customer ID
    * @param messageText - Message content
    * @returns Created message
    */
   async createSystemMessage(
-    jobId: string,
+    jobUuid: string,
     customerId: Types.ObjectId,
     messageText: string
   ): Promise<MessageResult> {
     const newMessage = await messageRepository.createSystemMessage(
-      jobId,
+      jobUuid,
       customerId,
       messageText
     );
 
     logger.info('System message created', { 
-      jobId, 
+      jobUuid,
       messageId: newMessage._id 
     });
 
@@ -135,4 +172,3 @@ class MessageService {
 
 // Export singleton instance
 export const messageService = new MessageService();
-

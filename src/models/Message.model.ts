@@ -3,9 +3,8 @@ import { IMessage } from '../types';
 
 const messageSchema = new Schema<IMessage>(
   {
-    jobId: {
-      type: Schema.Types.ObjectId,
-      ref: 'Job',
+    jobUuid: {
+      type: String,
       required: true,
     },
     customerId: {
@@ -29,7 +28,7 @@ const messageSchema = new Schema<IMessage>(
 );
 
 // Indexes for faster queries
-messageSchema.index({ jobId: 1, createdAt: -1 });
+messageSchema.index({ jobUuid: 1, createdAt: -1 });
 
 export const Message = model<IMessage>('Message', messageSchema);
 
